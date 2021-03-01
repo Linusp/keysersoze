@@ -1,0 +1,12 @@
+flake8
+
+click
+python-dateutil
+peewee
+requests
+PyExecJS
+scipy
+pandas
+dash
+dash-bootstrap-components
+tushare
