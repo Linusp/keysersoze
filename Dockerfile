@@ -1,15 +1,8 @@
-FROM python:3.8-slim
+FROM 74ls86/keysersoze:prepare
 
-RUN mkdir -p /workspace
-
-COPY . /workspace/
-
-WORKDIR /workspace/
-
-RUN apt-get update
-
+COPY . /workspace
+WORKDIR /workspace
 RUN pip install --exists-action=w -r requirements.txt
-
 ENV KEYSERSOZE_DB_DIR=/workspace
 
 CMD ["python", "app.py"]
