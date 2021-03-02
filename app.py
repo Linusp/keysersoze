@@ -578,7 +578,7 @@ def main():
         columns = [{'id': name, 'name': name} for name in df.columns]
         return columns, df.to_dict('records')
 
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', debug=True)
 
 
 if __name__ == '__main__':
