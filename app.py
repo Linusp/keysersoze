@@ -130,6 +130,16 @@ def main():
                         dbc.Col([
                             dbc.Card(
                                 dbc.CardBody([
+                                    html.P("总投入"),
+                                    html.H4(id="total_invested"),
+                                ]),
+                                color='primary',
+                                inverse=True,
+                            ),
+                        ]),
+                        dbc.Col([
+                            dbc.Card(
+                                dbc.CardBody([
                                     html.P("累计收益"),
                                     html.H4(id="total_return"),
                                 ]),
@@ -300,6 +310,7 @@ def main():
             dash.dependencies.Output('total_return_rate', 'children'),
             dash.dependencies.Output('annualized_return', 'children'),
             dash.dependencies.Output('position', 'children'),
+            dash.dependencies.Output('total_invested', 'children'),
         ],
         [
             dash.dependencies.Input('stats', 'data'),
@@ -316,7 +327,8 @@ def main():
 
         annualized_return = f'{100 * item["annualized_return"]:0.2f}%'
         position = f'{100 * item["position"]:0.2f}%'
-        return total_return, total_return_rate, annualized_return, position
+        total_invested = f'{item["amount"]:0.2f}' if show_money else '**********'
+        return total_return, total_return_rate, annualized_return, position, total_invested
 
     @app.callback(
         [
