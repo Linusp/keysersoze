@@ -1,6 +1,19 @@
 Keysersoze
 ==========
 
+<!-- TOC -->
+
+- [功能](#功能)
+- [使用](#使用)
+
+  - [数据准备](#数据准备)
+  - [部署说明](#部署说明)
+
+    - [Docker](#docker)
+    - [本地构建](#本地构建)
+
+<!-- /TOC -->
+
 ![](./images/keysersoze.png)
 
 ## 功能
@@ -46,8 +59,16 @@ TODO:
 - 交易记录导入
 - 账户持仓及收益更新
 
-### 本地部署
+### 部署说明
 
+#### Docker
+
+```shell
+docker pull 74ls86/keysersoze:0.1
+docker run -d -p 8050:8050 74ls86/keysersoze:0.1
+```
+
+#### 本地构建
 
 - 建立环境，安装依赖
 
