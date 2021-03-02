@@ -400,7 +400,7 @@ def main():
                 cur_df['price'] /= cur_df.iloc[0].price
                 cur_df['price'] -= 1.0
                 cur_df.rename(columns={'price': 'return'}, inplace=True)
-                if not index_df:
+                if index_df is None:
                     index_df = cur_df
                 else:
                     index_df = pd.concat([index_df, cur_df], ignore_index=True)
