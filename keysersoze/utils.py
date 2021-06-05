@@ -136,9 +136,13 @@ def compute_account_history(account):
     for record in search:
         history[record.date].append(record)
 
-    first_date, today = min(history.keys()), datetime.now().date()
+    first_date = min(history.keys())
+    end_date = datetime.now().date()
+    if datetime.now().hour < 20:
+        end_date -= timedelta(days=1)
+
     code2amount, results = {}, []
-    for offset in range((today - first_date).days):
+    for offset in range((end_date - first_date).days + 1):
         date = first_date + timedelta(days=offset)
         if date in history:
             code2amount = {}
@@ -181,7 +185,7 @@ def compute_account_history(account):
                 round(total_money, 2),
                 round(total_money / total_invested, 4),
                 round(cash, 2),
-                round(1 - cash / total_money, 4),
+                round(1 - cash / total_money if abs(total_money) > 0.0001 else 0.0, 4),
             ])
 
     return results
