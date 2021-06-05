@@ -72,7 +72,7 @@ def update_account_assets_history(account, verbse=False):
         date = deal.time.date()
         deals[date].append(deal)
 
-    created_cnt = 0
+    created_cnt, update_cnt = 0, 0
     code2amount, code2cost, code2asset = defaultdict(float), defaultdict(float), {}
     for date, date_deals in sorted(deals.items(), key=itemgetter(0)):
         for item in date_deals:
@@ -96,18 +96,37 @@ def update_account_assets_history(account, verbse=False):
                 code2amount[code] = item.amount
 
         for code, amount in code2amount.items():
-            _, created = AccountAssetsHistory.get_or_create(
-                account=account,
-                date=date,
-                asset=code2asset[code],
-                amount=code2amount[code],
-                cost=code2cost[code] if code != 'CASH' else None
+            record = AccountAssetsHistory.get_or_none(
+                account=account, date=date, asset=code2asset[code]
             )
-            created_cnt += created
-            if verbse and created and created_cnt % 100 == 0:
-                LOGGER.info('created %d new assets history for account %s', created_cnt, account)
+            created_or_updated = False
+            if not record:
+                AccountAssetsHistory.create(
+                    account=account,
+                    date=date,
+                    asset=code2asset[code],
+                    amount=code2amount[code],
+                    cost=code2cost[code] if code != 'CASH' else None
+                )
+                created_cnt += 1
+                created_or_updated = True
+            elif record.amount != code2amount[code]:
+                record.amount = code2amount[code]
+                record.cost = code2cost[code]
+                record.save()
+                update_cnt += 1
+                created_or_updated = True
 
-    LOGGER.info('created %d new assets history for account %s totally', created_cnt, account)
+            if verbse and created_or_updated and (created_cnt + update_cnt) % 100 == 0:
+                LOGGER.info(
+                    'created %d new assets history and updated %d records for account %s',
+                    created_cnt, update_cnt, account
+                )
+
+    LOGGER.info(
+        'created %d new assets history and updated %d records for account %s totally',
+        created_cnt, update_cnt, account
+    )
 
 
 def compute_account_history(account):
