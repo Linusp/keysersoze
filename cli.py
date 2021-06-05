@@ -1,6 +1,7 @@
 import os
 import re
 import csv
+import sys
 import json
 from datetime import datetime, timedelta
 import logging
@@ -967,6 +968,40 @@ def list_qieman_assets():
     """查看且慢资产列表"""
     for asset in QiemanAsset.select():
         print(asset.asset_id, asset.name)
+
+
+@main.command("export-qieman-profits")
+@click.option("-c", "--config-file", required=True)
+@click.option("-o", "--outfile")
+@click.option("-n", "--asset-name", required=True)
+def export_qieman_profits(config_file, asset_name, outfile):
+    """导出且慢资产的日收益历史"""
+    asset = QiemanAsset.get_or_none(name=asset_name)
+    if asset is None:
+        LOGGER.warning("could not find Qieman asset with name `%s`", asset_name)
+        return
+
+    if outfile:
+        fout = open(outfile, 'w')
+    else:
+        fout = sys.stdout
+
+    with open(config_file) as f:
+        config = json.load(f)
+        exporter = QiemanExporter(**config)
+        profits = []
+        for item in exporter.list_profits(asset.asset_id)['dailyProfitList']:
+            if item['dailyProfit'] is not None:
+                date_val = datetime.fromtimestamp(item['navDate'] / 1000).date()
+                profit = item['dailyProfit']
+                profits.append((date_val, profit))
+
+        profits.sort(key=itemgetter(0))
+        for date_val, profit in profits:
+            print(f'{date_val} 15:00:00\t{profit:0.2f}', file=fout)
+
+    if outfile:
+        fout.close()
 
 
 if __name__ == '__main__':
