@@ -14,39 +14,47 @@ Keysersoze
 
 <!-- /TOC -->
 
-![](./images/keysersoze.png)
+![](./images/keysersoze2.png)
 
 ## 功能
 
-- 展示投资账户的收益状况，包括累计收益、累计收益率、年化收益率
+- 展示投资账户的收益状况，包括日收益、累计收益、累计收益率、年化收益率
 
-  ![](./images/summary.png)
+  ![](./images/summary2.png)
+
+- 展示投资账户指定时间段内的总资产和总投入走势
+
+  ![](./images/asset_history.png)
+
+- 展示投资账户指定时间段内累计收益金额的走势，并标识出最大值
+
+  ![](./images/total_return.png)
 
 - 展示投资账户指定时间段内的收益率走势，以及和中证全指等市场基准之间的对比
 
-  ![](./images/return_curve.png)
+  ![](./images/return_curve2.png)
 
-- 以矩形树图的方式展示盈亏明细
+- 以柱状图的形式展示每日收益历史
 
-  ![](./images/profit_and_loss.png)
+  ![](./images/daily_return.png)
 
-- 展示持仓明细，包括各个投资品种的成本和收益
+- 展示持仓明细，包括各个投资品种的成本和收益，以及该品种的近期走势
 
-  ![](./images/position_detail.png)
+  ![](./images/position_detail2.png)
 
 - 历史交易记录展示
 
-  ![](./images/deals.png)
+  ![](./images/deals2.png)
 
 - `显示金额`开关，一键打开或关闭各项数据中的具体金额显示，保护个人隐私
 
   开关关闭状态
 
-  ![](./images/hide_money.png)
+  ![](./images/hide_money2.png)
 
   开关打开状态
 
-  ![](./images/show_money.png)
+  ![](./images/show_money2.png)
 
 - 多账户支持，选择多个账户后，将视作一个新的虚拟账户，同样能使用上述所有功能
 
@@ -64,11 +72,13 @@ TODO:
 #### Docker
 
 ```shell
-docker pull 74ls86/keysersoze:0.1
-docker run -d -p 8050:8050 74ls86/keysersoze:0.1
+docker pull 74ls86/keysersoze:0.2
+docker run -d -p 8050:8050 74ls86/keysersoze:0.2
 ```
 
 #### 本地构建
+
+系统依赖: python3, pip3, virtualenv, Make
 
 - 建立环境，安装依赖
 
