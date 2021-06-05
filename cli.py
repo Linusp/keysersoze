@@ -359,7 +359,8 @@ def parse_huabao(infile, outfile):
 
             line = '\t'.join([
                 '\t'.join(map(str, row[:6])),
-                '\t'.join([f'{r:.4f}' for r in row[6:]]),
+                f'{row[6]:0.2f}', f'{row[7]:0.4f}',
+                '\t'.join([f'{r:0.2f}' for r in row[8:]]),
             ])
             print(line, file=fout)
 
