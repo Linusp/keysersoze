@@ -599,14 +599,33 @@ def import_deals(infile):
         reader = csv.reader(fin, delimiter='\t')
         cnt, total = 0, 0
         for row in reader:
+            if len(row) != 10:
+                LOGGER.warning('column number is not 10: %s', row)
+                continue
+
             asset = Asset.get_or_none(Asset.zs_code == row[3])
             if asset is None:
                 LOGGER.warning('no asset found for code: %s', row[3])
                 continue
 
             if asset.zs_code == 'CASH' and row[6] != row[8]:
-                LOGGER.error('record is invalid: %s', row)
+                LOGGER.error('cash record is not balanced: %s', row)
                 return
+
+            if row[5] == 'buy':
+                try:
+                    diff = abs(float(row[6]) * float(row[7]) + float(row[9]) - float(row[8]))
+                    assert diff < 0.001
+                except AssertionError:
+                    LOGGER.warning("record is not balanced: %s", row)
+                    print(row)
+
+            elif row[5] == 'sell':
+                try:
+                    diff = abs(float(row[6]) * float(row[7]) - float(row[9]) - float(row[8]))
+                    assert diff < 0.001
+                except AssertionError:
+                    LOGGER.warning("record is not balanced: %s", row)
 
             _, created = Deal.get_or_create(
                 account=row[0],
