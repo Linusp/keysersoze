@@ -550,7 +550,6 @@ def update_prices(category, codes, start_date):
             if fund_data is None:
                 LOGGER.warning('no data for fund: %s', asset.zs_code)
                 continue
-
             history = defaultdict(dict)
             for nav in fund_data['Data_netWorthTrend']:
                 date = str(datetime.fromtimestamp(nav['x'] / 1000).date())
