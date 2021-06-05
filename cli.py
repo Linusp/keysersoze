@@ -953,6 +953,14 @@ def huobi2bean(infile, outfile):
                 print('', file=fout)
 
 
+@main.command("add-qieman-asset")
+@click.option("--asset-id", required=True)
+@click.option("--asset-name", required=True)
+def add_qieman_asset(asset_id, asset_name):
+    """添加且慢资产"""
+    _, created = QiemanAsset.get_or_create(asset_id=asset_id, name=asset_name)
+    LOGGER.info("finished")
+
 
 if __name__ == '__main__':
     main()
