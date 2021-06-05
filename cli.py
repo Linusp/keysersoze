@@ -68,7 +68,7 @@ def main():
     pass
 
 
-@main.command("export-qieman")
+@main.command("export-qieman-orders")
 @click.option("-c", "--config-file", required=True)
 @click.option("-o", "--outfile", required=True)
 @click.option("-n", "--asset-name", required=True)
