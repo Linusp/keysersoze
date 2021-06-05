@@ -1,0 +1,24 @@
+/* Turn off existing buttons */
+.radio-group .custom-control-input ~ .custom-control-label::before {
+  content: none;
+}
+
+.radio-group .custom-radio .custom-control-input ~ .custom-control-label::after {
+  content: none;
+}
+
+/* restyle radio items */
+.radio-group .custom-control {
+  padding-left: 0;
+}
+
+.radio-group .btn-group > .custom-control:not(:last-child) > .btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.radio-group .btn-group > .custom-control:not(:first-child) > .btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
+}
