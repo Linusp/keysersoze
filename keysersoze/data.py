@@ -22,7 +22,7 @@ class QiemanExporter:
     # source: https://gist.github.com/iwinux/30012ba5e21fba4580b2d2b74b934493
     BASE_URL = 'https://qieman.com/pmdj/v2'
 
-    def __init__(self, aid, request_id, sign, token):
+    def __init__(self, aid, request_id, sign, token, wallet_id=None):
         self.headers = {
             'Authorization': f'Bearer {token}',
             'x-aid': aid,
@@ -30,6 +30,20 @@ class QiemanExporter:
             'x-sign': sign,
         }
         self.http = Session()
+        self.wallet_id = wallet_id
+
+    def list_profits(self, asset_id):
+        """获取指定资产的日收益历史"""
+        if asset_id != 'wallet':
+            resp = self._http_get(f'/ca/{asset_id}/profits-history')
+        elif self.wallet_id:
+            # 且慢的钱包应用盈米宝实际为广发钱袋子，其基金代码为 000509
+            params = {'walletId': self.wallet_id, 'fundCode': '000509'}
+            resp = self._http_get(f'/{asset_id}/profits-history', params)
+        else:
+            return []
+
+        return resp
 
     def list_orders(self, asset_id):
         for order in self._list_orders(asset_id):
