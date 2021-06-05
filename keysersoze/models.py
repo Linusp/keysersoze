@@ -185,9 +185,9 @@ class AccountHistory(BaseModel):
 
     @classmethod
     def get_summary(cls, accounts=None, date=None):
-        date = date or datetime.now().date()
-        if date >= datetime.now().date():
-            date -= timedelta(days=1)
+        now = datetime.now()
+        if date is None:
+            date = now.date() if now.hour >= 20 else now.date() - timedelta(days=1)
 
         accounts = accounts or cls.all_acounts()
         records = []
@@ -202,7 +202,12 @@ class AccountHistory(BaseModel):
 
             cash_flow = Deal.get_cash_flow([account], date)
             cash_flow[date] += record.money
-            annualized_return = xirr(sorted(cash_flow.items(), key=itemgetter(0)))
+            start_date = min(cash_flow.keys())
+            annualized_return = None
+            if (date - start_date).days >= 30:
+                annualized_return = xirr(sorted(cash_flow.items(), key=itemgetter(0)))
+                annualized_return = round(annualized_return, 4)
+
             records.append({
                 'account': record.account,
                 'date': record.date,
@@ -212,7 +217,7 @@ class AccountHistory(BaseModel):
                 'return_rate': round(record.nav - 1, 4),
                 'cash': round(record.cash, 2),
                 'position': round(record.position, 4),
-                'annualized_return': round(annualized_return, 4),
+                'annualized_return': annualized_return,
             })
 
         if records:
@@ -221,20 +226,26 @@ class AccountHistory(BaseModel):
             total_money = sum([item['money'] for item in records])
             cash_flow = Deal.get_cash_flow(accounts, date)
             cash_flow[date] += total_money
-            annualized_return = xirr(sorted(cash_flow.items(), key=itemgetter(0)))
-            records.append({
-                'account': '总计',
+            start_date = min(cash_flow.keys())
+            annualized_return = None
+            if (date - start_date).days >= 30:
+                annualized_return = xirr(sorted(cash_flow.items(), key=itemgetter(0)))
+                annualized_return = round(annualized_return, 4)
+
+            position = 1 - total_cash / total_money if abs(total_money) > 0.0001 else 0.0
+            return {
+                'accounts': accounts,
                 'date': max(records, key=itemgetter('date'))['date'],
                 'amount': round(total_invested, 2),
                 'money': round(total_money, 2),
                 'return': round(total_money - total_invested, 2),
                 'return_rate': round(total_money / total_invested - 1, 4),
                 'cash': round(total_cash, 2),
-                'position': round(1 - total_cash / total_money, 4),
-                'annualized_return': round(annualized_return, 4)
-            })
+                'position': round(position, 4),
+                'annualized_return': annualized_return,
+            }
 
-        return records
+        return None
 
 
 class AccountAssetsHistory(BaseModel):
