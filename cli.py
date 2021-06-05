@@ -466,107 +466,85 @@ def init_assets():
         )
 
 
-@main.command('update-asset-history')
-@click.option('--update-all', is_flag=True)
-@click.option('--categories')
-def update_asset_history(update_all, categories):
+@main.command('update-prices')
+@click.option('--category', type=click.Choice(['index', 'stock', 'fund', 'bond']))
+@click.option('--codes')
+@click.option('--start-date')
+def update_prices(category, codes, start_date):
     '''更新交易记录涉及到的资产的历史价格'''
     token = os.environ.get('TS_TOKEN')
     if not token:
         LOGGER.warning('environment `TS_TOKEN` is empty!')
         return -1
 
-    client = tushare.pro_api(token)
-    categories = None if not categories else set(categories.split(','))
-    if 'index' in categories:
-        method = client.index_daily
-        created_cnt, total = 0, 0
-        for index in Asset.select().where(Asset.category == 'index'):
-            total += 1
-            if update_all:
-                data = method(ts_code=index.zs_code)
-            else:
-                now = datetime.now()
-                start_date = (now - timedelta(days=10)).strftime('%Y%m%d')
-                if now.hour >= 15:
-                    end_date = now.strftime('%Y%m%d')
-                else:
-                    end_date = (now - timedelta(days=1)).strftime('%Y%m%d')
+    assets = []
+    if codes:
+        for code in codes.split(','):
+            asset = Asset.get_or_none(zs_code=code)
+            if asset is None:
+                LOGGER.warning("code `%s` is not found in database", code)
+                continue
+            assets.append(asset)
+    else:
+        categories = set(['index', 'stock', 'bond', 'fund'])
+        if category:
+            categories = categories & set([category])
 
-                data = method(
-                    ts_code=index.zs_code,
-                    start_date=start_date,
-                    end_date=end_date
-                )
+        assets = [
+            deal.asset for deal in Deal.select(Deal.asset).distinct()
+            if deal.asset.category in categories
+        ]
+        if 'index' in categories:
+            assets.extend(list(Asset.select().where(Asset.category == 'index')))
 
-            for _, row in data.iterrows():
-                _, created = AssetMarketHistory.get_or_create(
-                    date=datetime.strptime(row['trade_date'], '%Y%m%d').date(),
-                    open_price=row['open'],
-                    close_price=row['close'],
-                    pre_close=row['pre_close'],
-                    change=row['change'],
-                    pct_change=row['pct_chg'],
-                    vol=row['vol'],
-                    amount=row['amount'],
-                    high_price=row['high'],
-                    low_price=row['low'],
-                    asset=index
-                )
-                created_cnt += created
+    now = datetime.now()
+    if start_date is None:
+        start_date = (now - timedelta(days=10)).date()
+    else:
+        start_date = datetime.strptime(start_date, '%Y%m%d').date()
 
-        LOGGER.info('created %d history records for %d index', created_cnt, total)
+    if now.hour >= 15:
+        end_date = now.date()
+    else:
+        end_date = (now - timedelta(days=1)).date()
 
     api = EastMoneyFundExporter()
-    created_cnt, total = 0, 0
-    for deal in Deal.select(Deal.asset).distinct():
-        asset = deal.asset
-        if not re.match(r'^[0-9]{6}\.(?:SH|SZ|OF)$', asset.zs_code):
-            continue
-
-        if categories and asset.category not in categories:
-            continue
-
-        total += 1
-        if asset.category in ('stock', 'bond') or \
+    client = tushare.pro_api(token)
+    methods = {
+        'stock': client.daily,
+        'bond': client.cb_daily,
+        'fund': client.fund_daily,
+        'index': client.index_daily
+    }
+    for asset in assets:
+        created_cnt = 0
+        if asset.category in ('stock', 'bond', 'index') or \
            (asset.category == 'fund' and not asset.zs_code.endswith('OF')):
-            method = client.daily
-            if asset.category == 'bond':
-                method = client.cb_daily
-            elif asset.category == 'fund':
-                method = client.fund_daily
-
-            if update_all:
-                data = method(ts_code=asset.zs_code)
-            else:
-                now = datetime.now()
-                start_date = (now - timedelta(days=10)).strftime('%Y%m%d')
-                if now.hour >= 15:
-                    end_date = now.strftime('%Y%m%d')
-                else:
-                    end_date = (now - timedelta(days=1)).strftime('%Y%m%d')
-
+            days = (end_date - start_date).days + 1
+            method = methods[asset.category]
+            for offset in range(0, days, 1000):
+                cur_start_date = start_date + timedelta(days=offset)
+                cur_end_date = min(cur_start_date + timedelta(days=1000), end_date)
                 data = method(
                     ts_code=asset.zs_code,
-                    start_date=start_date,
-                    end_date=end_date
+                    start_date=cur_start_date.strftime('%Y%m%d'),
+                    end_date=cur_end_date.strftime('%Y%m%d')
                 )
-
-            for _, row in data.iterrows():
-                _, created = AssetMarketHistory.get_or_create(
-                    date=datetime.strptime(row['trade_date'], '%Y%m%d').date(),
-                    open_price=row['open'],
-                    close_price=row['close'],
-                    pre_close=row['pre_close'],
-                    change=row['change'],
-                    pct_change=row['pct_chg'],
-                    vol=row['vol'],
-                    amount=row['amount'],
-                    high_price=row['high'],
-                    low_price=row['low'],
-                    asset=asset
-                )
-                created_cnt += created
+                for _, row in data.iterrows():
+                    _, created = AssetMarketHistory.get_or_create(
+                        date=datetime.strptime(row['trade_date'], '%Y%m%d').date(),
+                        open_price=row['open'],
+                        close_price=row['close'],
+                        pre_close=row['pre_close'],
+                        change=row['change'],
+                        pct_change=row['pct_chg'],
+                        vol=row['vol'],
+                        amount=row['amount'],
+                        high_price=row['high'],
+                        low_price=row['low'],
+                        asset=asset
+                    )
+                    created_cnt += created
         elif asset.category == 'fund':
             fund_data = api.get_fund_data(asset.code)
             if fund_data is None:
@@ -611,8 +589,7 @@ def update_asset_history(update_all, categories):
                 )
                 created_cnt += created
 
-    if total > 0:
-        LOGGER.info('created %d history records for %d assets', created_cnt, total)
+        LOGGER.info('created %d history records for %s(%s)', created_cnt, asset.name, asset.zs_code)
 
 
 @main.command()
