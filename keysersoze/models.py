@@ -316,3 +316,9 @@ class AccountAssetsHistory(BaseModel):
                 results[asset]['avg_cost'] = round(cost / amount, 4)
 
         return list(results.values())
+
+
+class QiemanAsset(BaseModel):
+
+    asset_id = CharField(primary_key=True, max_length=64)
+    name = CharField(max_length=200, index=True)

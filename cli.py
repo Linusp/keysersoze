@@ -22,6 +22,7 @@ from keysersoze.models import (
     AssetMarketHistory,
     AccountHistory,
     AccountAssetsHistory,
+    QiemanAsset,
 )
 from keysersoze.utils import (
     get_code_suffix,
@@ -371,6 +372,7 @@ def create_db():
         AssetMarketHistory,
         AccountHistory,
         AccountAssetsHistory,
+        QiemanAsset,
     ])
     DATABASE.close()
 
