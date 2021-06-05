@@ -718,5 +718,228 @@ def update_accounts(accounts):
         LOGGER.info('created %d new history for account %s', created_cnt, account)
 
 
+@main.command("price2bean")
+@click.option("-o", "--outdir", required=True)
+def price2bean(outdir):
+    """将价格历史输出为 beancount 格式"""
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    for deal in Deal.select(Deal.asset).distinct():
+        asset = deal.asset
+        if asset.category not in ('stock', 'fund', 'bond'):
+            continue
+
+        code, suffix = asset.zs_code.split('.')
+        name = f'{suffix}{code}'
+        with open(os.path.join(outdir, f'{name}.bean'), 'w') as fout:
+            for record in asset.history.order_by(AssetMarketHistory.date):
+                if suffix == 'OF':
+                    price = record.nav
+                else:
+                    price = record.close_price
+
+                print(f'{record.date} price {name} {price:0.4f} CNY', file=fout)
+
+
+@main.command("to-bean")
+@click.option("-a", "--account", required=True)
+@click.option("-o", "--outfile", required=True)
+@click.option("--asset-prefix")
+def to_beancount(account, outfile, asset_prefix):
+    """将交易记录输出为 beancount 格式"""
+    search = Deal.select().where(Deal.account == account).order_by(Deal.time)
+    records = list(search)
+    if not records:
+        return
+
+    if asset_prefix:
+        account_prefix = ':'.join(['Assets', asset_prefix, f'{account}'])
+    else:
+        account_prefix = ':'.join(['Assets', f'{account}'])
+
+    with open(outfile, 'w') as fout:
+        for item in records:
+            code, suffix = None, None
+            if item.asset.category != 'other':
+                code, suffix = item.asset.zs_code.split('.')
+
+            if item.action == 'transfer_in':
+                text = '\n'.join([
+                    f'{item.time.date()} * "转账"',
+                    f'    {account_prefix}:CASH    {item.money:0.2f} CNY',
+                    '    Equity:Opening-Balances',
+                ])
+                print(text + '\n', file=fout)
+            elif item.action == 'transfer_out':
+                text = '\n'.join([
+                    f'{item.time.date()} * "转出"',
+                    f'    {account_prefix}:CASH    -{item.money:0.2f} CNY',
+                    '    Equity:Opening-Balances',
+                ])
+                print(text + '\n', file=fout)
+            elif item.action == 'buy':
+                text = '\n'.join([
+                    f'{item.time.date()} * "买入{item.asset.name}"',
+                    f'    {account_prefix}:持仓    {item.amount} {suffix}{code} @@ {item.money:0.2f} CNY',
+                    f'    {account_prefix}:CASH    -{item.money:0.2f} CNY',
+                ])
+                print(text + '\n', file=fout)
+            elif item.action == 'sell':
+                text = '\n'.join([
+                    f'{item.time.date()} * "卖出{item.asset.name}"',
+                    f'    {account_prefix}:持仓    -{item.amount} {suffix}{code} @@ {item.money:0.2f} CNY',
+                    f'    {account_prefix}:CASH    {item.money:0.2f} CNY',
+                ])
+                print(text + '\n', file=fout)
+            elif item.action in ('reinvest', 'fix_cash') and item.asset.zs_code == 'CASH':
+                text = '\n'.join([
+                    f'{item.time.date()} * "现金收益"',
+                    f'    {account_prefix}:CASH    {item.money:0.2f} CNY',
+                    '    Income:现金收益',
+                ])
+                print(text + '\n', file=fout)
+            elif item.action == 'bonus':
+                text = '\n'.join([
+                    f'{item.time.date()} * "{item.asset.name}分红"',
+                    f'    {account_prefix}:CASH    {item.money:0.2f} CNY',
+                    '    Income:分红',
+                ])
+                print(text + '\n', file=fout)
+            elif item.action == 'reinvest':
+                text = '\n'.join([
+                    f'{item.time.date()} * "{item.asset.name}分红"',
+                    f'    {account_prefix}:CASH    {item.money:0.2f} CNY',
+                    '    Income:分红',
+                ])
+                print(text + '\n', file=fout)
+                text = '\n'.join([
+                    f'{item.time.date()} * "买入{item.asset.name}"',
+                    f'    {account_prefix}:持仓    {item.amount} {suffix}{code} @@ {item.money:0.2f} CNY',
+                    f'    {account_prefix}:CASH    -{item.money:0.2f} CNY',
+                ])
+                print(text + '\n', file=fout)
+            elif item.action == 'spin_off':
+                price = item.asset.history.\
+                    where(AssetMarketHistory.date == item.time.date()).\
+                    first().nav
+                money = round(item.amount * price, 2)
+                search = item.asset.assets_history.where(AccountAssetsHistory.account == account)
+                search = search.where(AccountAssetsHistory.date < item.time.date())
+                search = search.order_by(AccountAssetsHistory.date.desc())
+                record = search.first()
+                text = '\n'.join([
+                    f'{item.time.date()} * "卖出{item.asset.name}"',
+                    f'    {account_prefix}:持仓    -{record.amount} {suffix}{code} @@ {money:0.2f} CNY',
+                    f'    {account_prefix}:CASH    {money:0.2f} CNY',
+                ])
+                print(text + '\n', file=fout)
+                text = '\n'.join([
+                    f'{item.time.date()} * "买入{item.asset.name}"',
+                    f'    {account_prefix}:持仓    {item.amount} {suffix}{code} @@ {money:0.2f} CNY',
+                    f'    {account_prefix}:CASH    -{money:0.2f} CNY',
+                ])
+                print(text + '\n', file=fout)
+
+
+@main.command()
+@click.option("--zs-code", required=True)
+@click.option("--start-date", required=True)
+@click.option("--end-date", required=True)
+@click.option("--price", type=float, required=True)
+def set_prices(zs_code, start_date, end_date, price):
+    """为指定品种设置历史价格（仅支持可转债）"""
+    asset = Asset.get_or_none(zs_code=zs_code)
+    if asset is None:
+        LOGGER.warning("code `%s` is not found in database", zs_code)
+        return
+
+    start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    created_cnt = 0
+    for offset in range((end_date - start_date).days + 1):
+        cur_date = start_date + timedelta(days=offset)
+        record = AssetMarketHistory.get_or_none(date=cur_date, asset=asset)
+        if record is not None:
+            LOGGER.warning("price at %s already exists", cur_date)
+            continue
+
+        AssetMarketHistory.create(
+            date=cur_date,
+            open_price=price,
+            close_price=price,
+            pre_close=price,
+            change=0.0,
+            pct_change=0.0,
+            vol=0.0,
+            amount=0.0,
+            high_price=price,
+            low_price=price,
+            asset=asset
+        )
+        created_cnt += 1
+
+    LOGGER.info('created %d history records for %s(%s)', created_cnt, asset.name, asset.zs_code)
+
+
+@main.command()
+@click.option("-i", "--infile", required=True)
+@click.option("-o", "--outfile", required=True)
+def huobi2bean(infile, outfile):
+    """将火币交易记录转为 beancount 格式"""
+    with open(infile) as fin, open(outfile, 'w') as fout:
+        data = []
+        for idx, line in enumerate(fin):
+            if idx == 0:
+                continue
+            cols = line.strip().split(',')
+            time, pair, action = cols[0], cols[2], cols[3]
+            target_coin, source_coin = pair.split('/')
+            price, amount, money, fee = cols[4:8]
+            if fee.endswith(source_coin) or fee.endswith(target_coin):
+                fee_coin = target_coin if action == '买入' else source_coin
+                fee = fee.replace(fee_coin, '')
+            elif fee.endswith('HBPOINT'):
+                fee_coin = 'HBPOINT'
+                fee = fee.replace(fee_coin, '')
+
+            if re.match(r'^0\.0+$', amount):
+                precision = max(
+                    len(price.split('.')[1]),
+                    len(money.split('.')[1]),
+                )
+                amount = f'{float(money) / float(price):0.{precision}f}'
+
+            time = datetime.strptime(time, '%Y-%m-%d %H:%M:%S')
+            data.append((time, source_coin, target_coin, action, price, amount, money, fee_coin, fee))
+
+        print("option \"title\" \"我的账本\"", file=fout)
+        print('option "operating_currency" "USDT"', file=fout)
+        print('2021-01-01 custom "fava-option" "language" "zh"', file=fout)
+        print('2021-01-01 open Assets:Huobi', file=fout)
+        print('2021-01-01 open Expenses:Fee', file=fout)
+
+        data.sort(key=itemgetter(0))
+        for idx, item in enumerate(data):
+            time, source, target, action, price, amount, money, fee_coin, fee = item
+            print(f'{time.date()} * "{action}{target}"', file=fout)
+            if action == '买入':
+                print(f'  Assets:Huobi   {amount} {target} @@ {money} {source}', file=fout)
+                print(f'  Assets:Huobi   -{money} {source}', file=fout)
+                if not re.match(r'^0\.0+$', fee):
+                    print(f'  Expenses:Fee   {fee} {fee_coin}', file=fout)
+                    print(f'  Assets:Huobi   -{fee} {fee_coin}', file=fout)
+            else:
+                print(f'  Assets:Huobi   -{amount} {target} @@ {money} {source}', file=fout)
+                print(f'  Assets:Huobi   {money} {source}', file=fout)
+                if not re.match(r'^0\.0+$', fee):
+                    print(f'  Expenses:Fee   {fee} {fee_coin}', file=fout)
+                    print(f'  Assets:Huobi   -{fee} {fee_coin}', file=fout)
+
+            if idx < len(data) - 1:
+                print('', file=fout)
+
+
+
 if __name__ == '__main__':
     main()
