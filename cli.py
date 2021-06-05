@@ -962,5 +962,12 @@ def add_qieman_asset(asset_id, asset_name):
     LOGGER.info("finished")
 
 
+@main.command("list-qieman-assets")
+def list_qieman_assets():
+    """查看且慢资产列表"""
+    for asset in QiemanAsset.select():
+        print(asset.asset_id, asset.name)
+
+
 if __name__ == '__main__':
     main()
