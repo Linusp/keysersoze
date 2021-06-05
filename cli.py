@@ -70,14 +70,19 @@ def main():
 
 @main.command("export-qieman")
 @click.option("-c", "--config-file", required=True)
-@click.option("--asset-id", required=True)
 @click.option("-o", "--outfile", required=True)
-def export_qieman_orders(config_file, asset_id, outfile):
+@click.option("-n", "--asset-name", required=True)
+def export_qieman_orders(config_file, asset_name, outfile):
     """导出且慢订单记录"""
+    asset = QiemanAsset.get_or_none(name=asset_name)
+    if asset is None:
+        LOGGER.warning("could not find Qieman asset with name `%s`", asset_name)
+        return
+
     with open(config_file) as f:
         config = json.load(f)
         exporter = QiemanExporter(**config)
-        orders = exporter.list_orders(asset_id)
+        orders = exporter.list_orders(asset.asset_id)
 
     with open(outfile, 'w') as fout:
         for order in orders:
