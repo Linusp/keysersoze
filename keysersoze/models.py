@@ -321,7 +321,7 @@ class AccountAssetsHistory(BaseModel):
 
             results[asset]['money'] = round(amount * price, 2)
             results[asset]['return'] = results[asset]['money'] - cost
-            if cost > 0:
+            if cost > 0 and amount > 0:
                 results[asset]['return_rate'] = round(results[asset]['return'] / cost, 4)
             if amount > 0:
                 results[asset]['avg_cost'] = round(cost / amount, 4)
