@@ -252,7 +252,40 @@ def get_accounts_summary(accounts=None, date=None):
     if not accounts:
         accounts = [deal.account for deal in Deal.select(Deal.account).distinct()]
 
-    accounts_summary = AccountHistory.get_summary(accounts, date)
+    summary = AccountHistory.get_summary(accounts, date)
+    prev_summary = AccountHistory.get_summary(accounts, date - timedelta(days=1))
+    if prev_summary is not None:
+        summary['day_return'] = summary['return'] - prev_summary['return']
+    else:
+        summary['day_return'] = 0
+
+    day_return = summary['day_return']
+    if abs(day_return) < 0.1 or abs(summary['money'] - day_return) < 0.01:
+        summary['day_return_rate'] = 0
+    else:
+        summary['day_return_rate'] = day_return / (summary['money'] - day_return)
+
     assets = AccountAssetsHistory.get_assets(accounts, date)
     assets.sort(key=itemgetter('money'), reverse=True)
-    return accounts_summary, assets
+
+    total_money = summary['money']
+    for item in assets:
+        item['position'] = item['money'] / total_money if abs(total_money) > 0.001 else 0.0
+
+    prev_assets = {}
+    for item in AccountAssetsHistory.get_assets(accounts, date - timedelta(days=1)):
+        prev_assets[item['code']] = item
+
+    for item in assets:
+        prev_item = prev_assets.get(item['code'])
+        if prev_item is None or prev_item['return'] is None:
+            item['day_return'] = 0.0
+        else:
+            item['day_return'] = round(item['return'] - prev_item['return'], 2)
+
+        if abs(item['day_return']) < 0.01 or abs(item['money']) < 0.01:
+            item['day_return_rate'] = 0.0
+        else:
+            item['day_return_rate'] = item['day_return'] / (item['money'] - item['day_return'])
+
+    return summary, assets
