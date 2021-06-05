@@ -207,6 +207,7 @@ def get_accounts_history(accounts, start_date=None, end_date=None):
                 'date': item.date,
                 'amount': item.amount,
                 'money': item.money,
+                'return': round(item.money - item.amount, 2),
                 'nav': item.nav,
                 'cash': item.cash,
                 'position': item.position,
@@ -228,8 +229,13 @@ def get_accounts_history(accounts, start_date=None, end_date=None):
 
     for date, info in summary.items():
         info['account'] = '总计'
+        info['return'] = round(info['money'] - info['amount'], 2)
         info['nav'] = round(info['money'] / info['amount'], 4)
-        info['position'] = round(1 - info['cash'] / info['money'], 4)
+        if info['money'] < 0.01:
+            info['position'] = 0
+        else:
+            info['position'] = round(1 - info['cash'] / info['money'], 4)
+
         info['amount'] = round(info['amount'], 2)
         info['money'] = round(info['money'], 2)
         data.append(info)
@@ -239,9 +245,9 @@ def get_accounts_history(accounts, start_date=None, end_date=None):
 
 
 def get_accounts_summary(accounts=None, date=None):
-    date = date or datetime.now().date()
-    if date >= datetime.now().date():
-        date -= timedelta(days=1)
+    now = datetime.now()
+    if date is None:
+        date = now.date() if now.hour >= 20 else now.date() - timedelta(days=1)
 
     if not accounts:
         accounts = [deal.account for deal in Deal.select(Deal.account).distinct()]
