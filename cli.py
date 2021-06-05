@@ -702,20 +702,33 @@ def update_accounts(accounts):
         update_account_assets_history(account)
 
     for account in accounts:
-        created_cnt = 0
+        created_cnt, update_cnt = 0, 0
         for item in compute_account_history(account):
-            _, created = AccountHistory.get_or_create(
-                account=account,
-                date=item[0],
-                amount=item[1],
-                money=item[2],
-                nav=item[3],
-                cash=item[4],
-                position=item[5],
-            )
-            created_cnt += created
+            record = AccountHistory.get_or_none(account=account, date=item[0])
+            if not record:
+                AccountHistory.create(
+                    account=account,
+                    date=item[0],
+                    amount=item[1],
+                    money=item[2],
+                    nav=item[3],
+                    cash=item[4],
+                    position=item[5],
+                )
+                created_cnt += 1
+            elif record.amount != item[1] or record.money != item[2]:
+                record.amount = item[1]
+                record.money = item[2]
+                record.nav = item[3]
+                record.cash = item[4]
+                record.position = item[5]
+                record.save()
+                update_cnt += 1
 
-        LOGGER.info('created %d new history for account %s', created_cnt, account)
+        LOGGER.info(
+            'created %d new history and update %d record for account %s',
+            created_cnt, update_cnt, account
+        )
 
 
 @main.command("price2bean")
