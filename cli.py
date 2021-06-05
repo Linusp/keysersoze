@@ -190,7 +190,7 @@ def parse_qieman_orders(infile, outfile, add_transfer):
             ])
 
         for account, sub_account, order_time, code, name, money in unknown_buyings:
-            fund = Asset.get_or_none(code=f'{code}.OF')
+            fund = Asset.get_or_none(zs_code=f'{code}.OF')
             if not fund:
                 LOGGER.warning(
                     "fund `%s` is not found in database, add it with `update-fund`",
@@ -227,7 +227,8 @@ def parse_qieman_orders(infile, outfile, add_transfer):
 
             line = '\t'.join([
                 '\t'.join(map(str, row[:6])),
-                '\t'.join([f'{r:.4f}' for r in row[6:]]),
+                f'{row[6]:0.2f}', f'{row[7]:0.4f}',
+                '\t'.join([f'{r:.2f}' for r in row[8:]]),
             ])
             print(line, file=fout)
 
